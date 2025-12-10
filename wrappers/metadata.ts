@@ -71,9 +71,13 @@ export function flattenSnakeCell(cell: Cell): Buffer {
 export function decodeOffChainContent(content: Cell): string {
   const data = flattenSnakeCell(content);
 
-  if (data[0] !== OFFCHAIN_PREFIX) {
-    throw new Error(`unknown offChainPrefix: ${data[0].toString(16)}`);
+  // Check for the standard offchain prefix 0x01
+  if (data[0] === OFFCHAIN_PREFIX) {
+    return data.subarray(1).toString();
   }
-
-  return data.subarray(1).toString();
+  
+  // If no prefix, assume it's raw string data (which seems to be the case for our items)
+  // Our items are stored as just "/nft.json" without the 0x01 prefix in the item content cell
+  // because the COLLECTION data has the common content prefix.
+  return data.toString();
 }

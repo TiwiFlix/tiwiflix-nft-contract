@@ -20,6 +20,10 @@ export const Opcodes = {
     changeOwner: 3,
     changeContent: 4, // New opcode for updating mint price
     changeMintPrice: 5, // New opcode for updating mint price
+    changeNftItemAmount: 6,
+    changeRoyaltyParams: 7,
+    changeMaxSupply: 8,
+    emergencyWithdraw: 10,
 };
 
 export type RoyaltyParams = {
@@ -36,6 +40,9 @@ export type NftCollectionConfig = {
     nftItemCode: Cell;
     royaltyParams: RoyaltyParams;
     mintPrice: number; // Add mint price
+    isVerified?: boolean;
+    nftItemAmount?: number; // Optional default 0.05 TON
+    maxSupply?: bigint; // Optional default unlimited (2^64-1)
 };
 
 export function nftCollectionConfigToCell(config: NftCollectionConfig): Cell {
@@ -56,6 +63,9 @@ export function nftCollectionConfigToCell(config: NftCollectionConfig): Cell {
         .storeRef(config.nftItemCode)
         .storeRef(royaltyParams)
         .storeUint(config.mintPrice, 64) // Store mint price
+        .storeUint(config.isVerified ? 1 : 0, 1) // Store verified status
+        .storeUint(config.nftItemAmount ?? 50000000, 64) // Store nft item amount
+        .storeUint(config.maxSupply ?? 18446744073709551615n, 64) // Max supply
         .endCell();
 }
 
@@ -138,19 +148,20 @@ export class NftCollection implements Contract {
             queryId: number;
             addresses: Address[];
             nextItemIndex: number;
+            nftItemAmount?: bigint;
         },
     ) {
         const mintDict = Dictionary.empty(Dictionary.Keys.Uint(64), this.createMessageValue()); // Key: Uint(64)
 
-        for (let i = opts.nextItemIndex; i < opts.addresses.length; i++) {
+        for (let i = 0; i < opts.addresses.length; i++) {
             const nftContent = beginCell(); // Create your NFT content cell
             nftContent.storeAddress(opts.addresses[i]); // Store the owner's address
 
             const uriContent = beginCell();
             uriContent.storeBuffer(Buffer.from('/nft.json'));
             nftContent.storeRef(uriContent.endCell());
-            mintDict.set(i, {
-                value: toNano(0.01),
+            mintDict.set(opts.nextItemIndex + i, {
+                value: opts.nftItemAmount ?? toNano(0.06), // Enough for storage (0.05) + gas
                 content: nftContent.endCell(),
             }); // Use sequential BigInt keys starting from 1
         }
@@ -162,11 +173,11 @@ export class NftCollection implements Contract {
             .storeUint(opts.queryId ?? 0, 64) // Optional query ID (default 0)
             // .storeCoins(opts.value) // Value for the transaction
             .storeDict(mintDict, Dictionary.Keys.Uint(64), {
-                serialize: (src: { value: number; content: Cell }, builder) => {
+                serialize: (src: { value: bigint; content: Cell }, builder) => {
                     builder.storeCoins(src.value).storeRef(src.content);
                 },
                 parse: (src) => {
-                    return { value: src.loadCoins(), destination: src.loadRef() };
+                    return { value: src.loadCoins(), content: src.loadRef() };
                 },
             }) // Store the transfer dictionary
             .endCell(),
@@ -200,6 +211,26 @@ export class NftCollection implements Contract {
                 .storeUint(Opcodes.changeMintPrice, 32)
                 .storeUint(opts.queryId, 64)
                 .storeUint(opts.newMintPrice, 64) // Update mint price
+                .endCell(),
+        });
+    }
+
+    async sendChangeNftItemAmount(
+        provider: ContractProvider,
+        via: Sender,
+        opts: {
+            value: bigint;
+            queryId: number;
+            newNftItemAmount: number;
+        },
+    ) {
+        return await provider.internal(via, {
+            value: opts.value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: beginCell()
+                .storeUint(Opcodes.changeNftItemAmount, 32)
+                .storeUint(opts.queryId, 64)
+                .storeUint(opts.newNftItemAmount, 64) // Update mint price
                 .endCell(),
         });
     }
@@ -249,9 +280,93 @@ export class NftCollection implements Contract {
         });
     }
 
-    async getMintingPrice(provider: ContractProvider): Promise<number> {
+    async sendChangeRoyaltyParams(
+        provider: ContractProvider,
+        via: Sender,
+        opts: {
+            value: bigint;
+            queryId: number;
+            newRoyaltyParams: RoyaltyParams;
+        },
+    ) {
+        const royaltyParams = beginCell()
+            .storeUint(opts.newRoyaltyParams.factor, 16)
+            .storeUint(opts.newRoyaltyParams.base, 16)
+            .storeAddress(opts.newRoyaltyParams.address)
+            .endCell();
+
+        return await provider.internal(via, {
+            value: opts.value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: beginCell()
+                .storeUint(Opcodes.changeRoyaltyParams, 32)
+                .storeUint(opts.queryId, 64)
+                .storeRef(royaltyParams)
+                .endCell(),
+        });
+    }
+
+    async sendChangeMaxSupply(
+        provider: ContractProvider,
+        via: Sender,
+        opts: {
+            value: bigint;
+            queryId: number;
+            newMaxSupply: bigint;
+        },
+    ) {
+        return await provider.internal(via, {
+            value: opts.value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: beginCell()
+                .storeUint(Opcodes.changeMaxSupply, 32)
+                .storeUint(opts.queryId, 64)
+                .storeUint(opts.newMaxSupply, 64)
+                .endCell(),
+        });
+    }
+
+    async sendEmergencyWithdraw(
+        provider: ContractProvider,
+        via: Sender,
+        opts: {
+            value: bigint;
+            queryId: number;
+        },
+    ) {
+        return await provider.internal(via, {
+            value: opts.value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: beginCell()
+                .storeUint(Opcodes.emergencyWithdraw, 32)
+                .storeUint(opts.queryId, 64)
+                .endCell(),
+        });
+    }
+
+    async getCollectionBalance(provider: ContractProvider): Promise<bigint> {
+        const state = await provider.getState();
+        return state.balance;
+    }
+
+    async getMintingPrice(provider: ContractProvider): Promise<bigint> {
         const { stack } = await provider.get('get_minting_price', []);
-        return stack.readNumber(); // Return mint price
+        return stack.readBigNumber(); // Return mint price
+    }
+
+    async getIsVerified(provider: ContractProvider): Promise<boolean> {
+        const { stack } = await provider.get('is_verified', []);
+        return stack.readBoolean();
+    }
+
+    async getNftItemAmount(provider: ContractProvider): Promise<bigint> {
+        const { stack } = await provider.get('get_nft_item_amount', []);
+        return stack.readBigNumber();
+    }
+
+    async getMaxSupply(provider: ContractProvider): Promise<bigint> {
+        const { stack } = await provider.get('get_max_supply', []);
+        return stack.readBigNumber();
     }
 
     async getCollectionData(provider: ContractProvider): Promise<{

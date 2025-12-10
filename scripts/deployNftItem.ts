@@ -12,6 +12,8 @@ export async function run(provider: NetworkProvider, args: string[]) {
     const nftCollection = provider.open(NftCollection.createFromAddress(address));
 
     const data = await nftCollection.getCollectionData();
+    const nftAddress = await nftCollection.getNftAddressByIndex(BigInt(data.nextItemIndex));
+    
     const mintFee = await nftCollection.getMintingPrice();
     console.log('Deploy NFT mint fee: ', fromNano(mintFee));
     await nftCollection.sendMint(provider.sender(), {
@@ -22,4 +24,15 @@ export async function run(provider: NetworkProvider, args: string[]) {
         ownerAddress: provider.sender().address as Address,
         content: '/nft.json',
     });
+    
+    console.log('NFT Item minted at index:', data.nextItemIndex);
+    
+    // Generate GetGems link for the specific NFT
+    const isTestnet = provider.network() !== 'mainnet';
+    const getgemsPrefix = isTestnet ? 'testnet.' : '';
+    const nftUrl = `https://${getgemsPrefix}getgems.io/collection/${address.toString()}/${nftAddress.toString()}`;
+    
+    console.log('---------------------------------------------------------');
+    console.log('🚀 View your new NFT on GetGems:', nftUrl);
+    console.log('---------------------------------------------------------');
 }

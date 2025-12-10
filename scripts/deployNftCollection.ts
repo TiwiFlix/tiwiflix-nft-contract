@@ -34,21 +34,31 @@ export async function run(provider: NetworkProvider) {
     await provider.waitForDeploy(nftCollection.address);
 
     console.log('NFT Collection deployed at:', nftCollection.address.toString());
+    
+    // Generate GetGems link
+    const isTestnet = provider.network() !== 'mainnet';
+    const getgemsPrefix = isTestnet ? 'testnet.' : '';
+    const collectionUrl = `https://${getgemsPrefix}getgems.io/collection/${nftCollection.address.toString()}`;
+    
+    console.log('---------------------------------------------------------');
+    console.log('🚀 View your collection on GetGems:', collectionUrl);
+    console.log('---------------------------------------------------------');
 
-    // // Optional: Set the mint price after deployment
-    // await nftCollection.sendChangeMintPrice(provider.sender(), {
-    //     value: toNano('0.02'), // Gas fee for changing the price
-    //     queryId: Date.now(), // Unique query ID
-    //     newMintPrice: mintPrice, // Set the mint price
-    // });
+    // Mint 10 NFTs to the owner
+    console.log('Minting 10 NFTs to owner...');
+    const ownerAddress = provider.sender().address as Address;
+    const mintRequests: Address[] = [];
+    for (let i = 0; i < 10; i++) {
+        mintRequests.push(ownerAddress);
+    }
 
-    // console.log('Mint price set to:', mintPrice.toString());
+    await nftCollection.sendBatchMint(provider.sender(), {
+        value: toNano('0.08') * BigInt(mintRequests.length),
+        queryId: Date.now(),
+        addresses: mintRequests,
+        nextItemIndex: 0,
+        nftItemAmount: toNano('0.05'),
+    });
 
-    // // Get and log the collection data
-    // const data = await nftCollection.getCollectionData();
-    // console.log('Collection data:', data);
-
-    // // Get and log the current mint price
-    // const currentMintPrice = await nftCollection.getMintPrice();
-    // console.log('Current mint price:', currentMintPrice.toString());
+    console.log('Successfully sent request to mint 10 NFTs.');
 }
