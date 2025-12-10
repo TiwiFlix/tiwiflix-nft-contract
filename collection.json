@@ -1,14 +1,13 @@
 {
     "name": "TiwiFlix Content Access NFT - TON Ecosystem",
     "description": "Holding this NFT gives you access to watch free videos, join live sessions, and  become a creator to share videos and host live broadcasts on TiwiFlix.",
-    "image": "https://psalmfill.github.io/tiwiflix-ton-nft/assets/nft.jpg",
+    "image": "https://tiwiflix.github.io/tiwiflix-nft-contract/assets/nft.jpg",
     "external_link": "https://t.co/M36TlHD7VL",
-    "cover_image": "https://psalmfill.github.io/tiwiflix-ton-nft/assets/nft.jpg",
+    "cover_image": "https://tiwiflix.github.io/tiwiflix-nft-contract/assets/nft.jpg",
     "social_links": [
       "https://linktr.ee/tiwiecosystem",
       "https://x.com/tiwiecosystem",
       "https://t.me/tiwi_ecosystem",
-      "https://whatsapp.com/channel/0029VaATepwHQbS7GjNrv72b",
       "https://web.facebook.com/tiwiecosytem/",
       "https://www.youtube.com/@TIWI_Ecosystem"
     ]

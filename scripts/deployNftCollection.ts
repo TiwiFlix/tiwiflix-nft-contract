@@ -13,8 +13,8 @@ export async function run(provider: NetworkProvider) {
             {
                 ownerAddress: sender_address,
                 nextItemIndex: 0,
-                collectionContentUrl: 'https://psalmfill.github.io/tiwiflix-ton-nft/collection.json',
-                commonContentUrl: 'https://psalmfill.github.io/tiwiflix-ton-nft',
+                collectionContentUrl: 'https://tiwiflix.github.io/tiwiflix-nft-contract/collection.json',
+                commonContentUrl: 'https://tiwiflix.github.io/tiwiflix-nft-contract',
                 nftItemCode: await compile('NftItem'),
                 royaltyParams: {
                     factor: 10,
